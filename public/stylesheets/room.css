@@ -1,0 +1,47 @@
+html,
+body {
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
+    text-transform: uppercase;
+}
+
+#map {
+    cursor: pointer;
+}
+
+#scoreboard {
+    padding: 50px;
+    position: fixed;
+    right: 0;
+    top: 0;
+    width: 250px;
+}
+
+#errMsg {
+    visibility: hidden;
+    font-size: 20px;
+    max-width: 100%;
+    width: 75%;
+    text-align: center;
+    position: fixed;
+    color: white;
+    left: 50%;
+    top: 50%;
+}
+
+.right-bottom {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+}
+
+.left-bottom {
+    position: fixed;
+    left: 0;
+    bottom: 0;
+}
+
+button {
+    cursor: pointer;
+}

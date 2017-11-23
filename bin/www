@@ -1,0 +1,149 @@
+#!/usr/bin/env node
+
+var app = require('../app');
+var http = require('http');
+var server = http.createServer(app);
+var server = server.listen(80);
+var io = require('socket.io').listen(server);
+
+var F = require('../_FUNCTIONS.js');
+var Player = require('../Player.js');
+var Room = require('../Room.js');
+
+Array.prototype.remove = function(e) { for (var i = 0; i < this.length; i++) { if (e == this[i]) { return this.splice(i, 1); } } };
+Array.prototype.find = function(name) { for (var i = 0; i < this.length; i++) { if (name == this[i].name) { return this[i]; } } return null; };
+
+var playerList = [];
+var roomList = [];
+
+var EmitPlayerList = () => {
+    var data = { length: playerList.length, data: [] };
+    for (var i = 0; i < playerList.length; ++i) {
+        data.data[i] = {};
+        data.data[i].name = (playerList[i].nickname !== null ? playerList[i].nickname : playerList[i].name);
+        data.data[i].gamemode = playerList[i].gamemode;
+    }
+    for (var i = 0; i < playerList.length; ++i) {
+        playerList[i].emit('playerlist', data);
+    }
+}
+
+var EmitRoomList = () => {
+    var data = { length: roomList.length, data: [] };
+    for (var i = 0; i < roomList.length; ++i) {
+        data.data[i] = {};
+        data.data[i].name = roomList[i].name;
+        data.data[i].lookerLen = roomList[i].lookerLen();
+        data.data[i].playerLen = roomList[i].playerLen();
+    }
+    for (var i = 0; i < playerList.length; ++i) {
+        playerList[i].emit('roomlist', data);
+    }
+}
+
+io.sockets.on('connection', function(socket) {
+
+    var id = F.randomID();
+    while (playerList.find(id)) {
+        id = F.randomID();
+    }
+    var player = new Player(id, socket);
+    playerList.push(player);
+    EmitPlayerList();
+    EmitRoomList();
+    console.log('玩家[' + player.name + ']加入伺服器');
+
+    socket.on('join', function(data) {
+        player.nickname = data.nickname;
+        console.log('玩家[' + player.name + ']有了名字[' + player.nickname + ']');
+        var room = roomList.find(data.roomname);
+        if (room !== null) {
+            if (room.join(player)) {
+                console.log('玩家[' + player.nickname + ']加入房間[' + room.name + ']以身分[' + player.gamemode + ']');
+            } else {
+                console.log('玩家[' + player.nickname + ']已經存在於房間[' + room.name + ']');
+            }
+        } else {
+            room = new Room(data.roomname);
+            roomList.push(room);
+            if (room.join(player)) {
+                console.log('玩家[' + player.nickname + ']創建房間[' + room.name + ']以身分[' + player.gamemode + ']加入');
+                EmitRoomList();
+            } else {
+                console.log('玩家[' + player.nickname + ']已經存在於房間[' + room.name + ']');
+            }
+        }
+        room.sendPlayers();
+        room.sendLookers();
+        room.sendSelfInfo();
+        room.sendTurn();
+        room.sendMap();
+    });
+
+    socket.on('move', function(data) {
+        if (player.room !== null) {
+            var result = player.room.moveTo(player, data.fx, data.fy, data.tx, data.ty);
+            if (result !== null) {
+                player.room.sendMap();
+                if (result.winnerColor !== null) {
+                    player.room.finish();
+                } else if (result.moveSuccess) {
+                    player.emit('msg', {
+                        errMsg: ''
+                    })
+                    player.room.sendTurn();
+                } else {
+                    player.emit('msg', {
+                        errMsg: result.errMsg
+                    })
+                }
+            } else {
+                player.emit('msg', {
+                    errMsg: '還不是時候'
+                })
+            }
+        }
+    });
+
+    socket.on('mp', function(data) {
+        if (player.room !== null) {
+            player.room.emitAll('mp', data);
+        }
+    });
+
+    socket.on('cp', function(data) {
+        if (player.room !== null) {
+            player.room.emitAll('cp', data);
+        }
+    });
+
+    socket.on('eog', function(data) {
+        if (player.room !== null) {
+            player.room.endOfTheGame(data.byeGamemode);
+        }
+    });
+
+    socket.on('disconnect', function(data) {
+        var room = player.room;
+        if (room !== null) {
+            room.kill(player);
+            console.log('玩家[' + player.nickname + ']離開房間[' + room.name + ']');
+            if (player.gamemode != 'looker') {
+                if (room.hasPlayer()) {
+
+                } else {
+                    roomList.remove(room);
+                    console.log('房間[' + room.name + ']已刪除');
+                    EmitPlayerList();
+                    EmitRoomList();
+                    room.end();
+                }
+                room.sendPlayers();
+            } else {
+                room.sendLookers();
+            }
+        }
+        playerList.remove(player);
+        console.log('玩家[' + (player.nickname !== null ? player.nickname : player.name) + ']離開伺服器');
+    });
+});
