@@ -17,6 +17,7 @@
 ### /public/images
 
 網站相關圖片
+
 | 文件 | 說明 |
 | ------ | ------ |
 | bg.png | 首頁背景圖 |
@@ -27,6 +28,7 @@
 ### /public/javascripts
 
 網站相關 js 文件
+
 | 文件 | 說明 |
 | ------ | ------ |
 | index.js | 首頁 js |
@@ -35,6 +37,7 @@
 ### /public/stylesheets
 
 網站相關 css 文件
+
 | 文件 | 說明 |
 | ------ | ------ |
 | index.js | 首頁 css |
